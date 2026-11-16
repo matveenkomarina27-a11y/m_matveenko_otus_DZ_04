@@ -1,12 +1,12 @@
-import io.github.bonigarcia.wdm.WebDriverManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
@@ -16,139 +16,108 @@ public class HomeWorkTest {
 
     private static final Logger log = LogManager.getLogger(HomeWorkTest.class);
 
-    private static final String BASE_URL = "https://wishlist.otus.kartushin.su";
+    private static final String BASE_URL = System.getProperty("base.url",
+            "https://the-internet.herokuapp.com");
 
-    WebDriver driver;
-
-    @BeforeAll
-    public static void install() {
-        WebDriverManager.chromedriver().setup();
-        log.info("ChromeDriver установлен через WebDriverManager");
-    }
+    private WebDriver driver;
 
     @BeforeEach
     public void setUp() {
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless=new");
-        driver = new ChromeDriver(options);
-        driver.manage().timeouts().scriptTimeout(Duration.ofSeconds(30));
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
-        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(30));
-        log.info("Браузер Chrome запущен в режиме headless");
+        driver = WebDriverFactory.createDriver("--headless=new");
+        log.info("Браузер запущен в headless-режиме");
     }
 
     @AfterEach
     public void close() {
-        if (driver != null)
-            driver.close();
+        if (driver != null) {
+            driver.quit();
+        }
         log.info("Браузер закрыт");
     }
 
-
     private void openInMode(String modeArgument) {
-        if (driver != null)
-            driver.quit();
-
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments(modeArgument);
-        driver = new ChromeDriver(options);
-        driver.manage().timeouts().scriptTimeout(Duration.ofSeconds(30));
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
-        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(30));
-        log.info("Браузер Chrome перезапущен в режиме: " + modeArgument);
+        driver.quit();
+        driver = WebDriverFactory.createDriver(modeArgument);
+        log.info("Браузер перезапущен в режиме: " + modeArgument);
     }
 
     /**
      * Задание №1.
-     * Открыть Chrome в headless-режиме, ввести «ОТУС» в поле ввода
-     * и проверить, что текст соответствует введённому.
+     * Открыть Chrome в headless-режиме, перейти на /inputs,
+     * ввести 42 в поле ввода и проверить, что значение соответствует введённому.
      */
     @Test
     public void headlessInputTest() {
         log.info("=== Задание №1: headless ===");
-        driver.get(BASE_URL);
-        log.info("Открыта страница: " + BASE_URL);
+        driver.get(BASE_URL + "/inputs");
+        log.info("Открыта страница: " + BASE_URL + "/inputs");
 
-        var input = driver.findElement(org.openqa.selenium.By.cssSelector("input[type='text'].form-control"));
+        var input = driver.findElement(By.cssSelector("input[type='number']"));
 
-        input.sendKeys("ОТУС");
-        log.info("В поле введён текст: ОТУС");
+        input.sendKeys("42");
+        log.info("В поле введено значение: 42");
 
-        JavascriptExecutor js = (JavascriptExecutor) driver;
-        String actualValue = (String) js.executeScript("return arguments[0].value;", input);
+        String actualValue = input.getAttribute("value");
 
-        Assertions.assertEquals("ОТУС", actualValue);
-        log.info("Проверка пройдена: в поле действительно «ОТУС»");
+        Assertions.assertEquals("42", actualValue);
+        log.info("Проверка пройдена: в поле действительно «42»");
     }
 
     /**
      * Задание №2.
-     * Открыть Chrome в режиме киоска, нажать «Открыть модальное окно»
-     * и проверить, что модальное окно открылось.
+     * Открыть Chrome в режиме киоска, перейти на /dialog,
+     * нажать «Open modal dialog» и проверить, что модальное окно открылось.
      */
     @Test
     public void kioskModalTest() {
         log.info("=== Задание №2: kiosk ===");
         openInMode("--kiosk");
-        driver.get(BASE_URL);
-        log.info("Открыта страница: " + BASE_URL);
+        driver.get(BASE_URL + "/dialog");
+        log.info("Открыта страница: " + BASE_URL + "/dialog");
 
-        // Нажимаем кнопку «Открыть модальное окно»
-        // Селектор уточни по своему стенду
-        var openButton = driver.findElement(org.openqa.selenium.By.xpath("//button[contains(text(),'Открыть модальное окно')]"));
-        openButton.click();
-        log.info("Нажата кнопка «Открыть модальное окно»");
+        driver.findElement(By.id("open-modal")).click();
+        log.info("Нажата кнопка «Open modal dialog»");
 
-        // Ждём появления модального окна и проверяем, что оно видно
         var wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-        var modal = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                org.openqa.selenium.By.cssSelector(".modal.show, .modal[style*='display: block']")));
+        var modal = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("modal-dialog")));
 
-        Assertions.assertTrue(modal.isDisplayed(), "Модальное окно должно открыться");
+        JavascriptExecutor js = (JavascriptExecutor) driver;
+        Boolean isModalOpen = (Boolean) js.executeScript(
+                "return arguments[0].open && arguments[0].matches(':modal');", modal);
+
+        Assertions.assertEquals(Boolean.TRUE, isModalOpen, "Модальное окно должно открыться");
         log.info("Модальное окно открылось — проверка пройдена");
     }
 
     /**
      * Задание №3.
-     * Открыть Chrome в полноэкранном режиме, ввести имя и ПАРОЛЬ,
-     * нажать «ВОЙТИ» и проверить переход на страницу Списка желаний.
+     * Открыть Chrome в полноэкранном режиме, перейти на /login,
+     * ввести tomsmith / SuperSecretPassword!, нажать «Login»
+     * и проверить поле «Logged in as tomsmith».
      */
     @Test
     public void fullscreenFormTest() {
         log.info("=== Задание №3: fullscreen ===");
-        // Пересоздаём браузер в полноэкранном режиме
         openInMode("--start-fullscreen");
-        driver.get(BASE_URL);
-        log.info("Открыта страница: " + BASE_URL);
+        driver.get(BASE_URL + "/login");
+        log.info("Открыта страница: " + BASE_URL + "/login");
 
-        String name = "Марина";
-        String password = "12345678";
+        driver.findElement(By.id("username")).sendKeys("tomsmith");
+        driver.findElement(By.id("password")).sendKeys("SuperSecretPassword!");
+        log.info("Введены имя пользователя и пароль");
 
-        driver.findElement(org.openqa.selenium.By.cssSelector("input[type='text'].form-control")).sendKeys(name);
-        driver.findElement(org.openqa.selenium.By.cssSelector("input[type='password'].form-control")).sendKeys(password);
-        log.info("Введено имя: " + name + ", пароль: " + password);
+        driver.findElement(By.cssSelector("#login button[type='submit']")).click();
+        log.info("Нажата кнопка «Login»");
 
-        // Нажимаем «Войти»
-        driver.findElement(org.openqa.selenium.By.xpath("//button[contains(text(),'Войти')]")).click();
-        log.info("Нажата кнопка «Войти»");
-
-        // Ждём появления страницы списка желаний
         var wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-        wait.until(ExpectedConditions.urlContains("/wishlists"));
-        log.info("Переход на /wishlists произошёл");
 
-        Assertions.assertEquals(
-                "https://wishlist.otus.kartushin.su/wishlists",
-                driver.getCurrentUrl(),
-                "Должен быть переход на страницу списков желаний"
-        );
+        var loggedIn = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.xpath("//p[contains(text(),'Logged in as')]")));
+        Assertions.assertEquals("Logged in as tomsmith", loggedIn.getText().trim(),
+                "После входа должно отображаться «Logged in as tomsmith»");
 
-        var heading = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.xpath("//h2[contains(text(),'Мои списки желаний')]")));
-
-        Assertions.assertEquals("Мои списки желаний", heading.getText().trim(),
-                "Заголовок на странице должен быть «Мои списки желаний»");
-        log.info("Заголовок «Мои списки желаний» найден — проверка пройдена");
+        var username = loggedIn.findElement(By.id("username"));
+        Assertions.assertEquals("tomsmith", username.getText());
+        log.info("Поле «Logged in as tomsmith» найдено — проверка пройдена");
     }
 }
-

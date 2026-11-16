@@ -1,40 +1,34 @@
-import io.github.bonigarcia.wdm.WebDriverManager;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.openqa.selenium.Cookie;
 import org.openqa.selenium.Dimension;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.chrome.ChromeDriver;
-
 import org.openqa.selenium.Point;
-import org.openqa.selenium.chrome.ChromeOptions;
-
-import java.time.Duration;
+import org.openqa.selenium.WebDriver;
 
 public class DriverConfig {
-    WebDriver driver;
-    @BeforeAll
-    public static void install() {
-        WebDriverManager.chromedriver().setup();
-    }
+
+    private static final String BASE_URL = System.getProperty("base.url",
+            "https://the-internet.herokuapp.com");
+
+    private WebDriver driver;
+
     @BeforeEach
     public void setUp() {
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless");
-        driver = new ChromeDriver(options);
-        driver.manage().timeouts().scriptTimeout(Duration.ofSeconds(30));
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
-        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(30));
+        driver = WebDriverFactory.createDriver("--headless", "--start-maximized");
     }
 
     @AfterEach
-    public void close(){
-        if (driver != null)
-            driver.close();
+    public void close() {
+        if (driver != null) {
+            driver.quit();
+        }
     }
 
     @Test
-    public void cookieTest(){
-        driver.get("https://wishlist.otus.kartushin.su");
+    public void cookieTest() {
+        driver.get(BASE_URL);
         //Добавить Cookie#1 с параметром Otus1 и значением Value1
         driver.manage().addCookie(new Cookie("Otus1", "Value1"));
         //Добавить Cookie#2 с параметром Otus2 и значением Value2
@@ -59,8 +53,7 @@ public class DriverConfig {
     }
 
     @Test
-    public void windowTest() throws InterruptedException{
-        driver.manage().window().maximize();
+    public void windowTest() throws InterruptedException {
         System.out.println(driver.manage().window().getSize());
         driver.manage().window().setSize(new Dimension(800, 600));
         System.out.println(driver.manage().window().getPosition());
